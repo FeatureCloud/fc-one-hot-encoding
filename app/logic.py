@@ -67,10 +67,10 @@ class AppLogic:
 
     def read_config(self):
         with open(self.INPUT_DIR + "/config.yml") as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)["fc_template"]
+            config = yaml.load(f, Loader=yaml.FullLoader)["fc_one_hot_encoding"]
             self.input_filename = config["files"]["input_filename"]
-            self.sep = config["files"]["sep"]
             self.output_filename = config["files"]["output_filename"]
+            self.sep = config["files"]["sep"]
         shutil.copyfile(self.INPUT_DIR + "/config.yml", self.OUTPUT_DIR + "/config.yml")
         print(f"Read config file.", flush=True)
 
