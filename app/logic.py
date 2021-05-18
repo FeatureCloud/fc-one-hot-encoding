@@ -3,6 +3,7 @@ import os
 import shutil
 import threading
 import time
+from typing import Optional, Dict, List
 
 import jsonpickle
 import pandas
@@ -40,6 +41,7 @@ class AppLogic:
         self.sep = None
         self.output_filename = None
         self.mode = None
+        self.study_definition: Optional[Dict[str, List[str]]] = None
 
         # === Internals ===
         self.thread = None
@@ -70,6 +72,38 @@ class AppLogic:
         self.status_available = False
         return self.data_outgoing
 
+    def is_coordinator(self):
+        return self.id == self.coordinator
+
+    def parse_study_definition(self, config):
+        directive = "categorical_variables"
+        definition = config.get(directive)
+        if definition is None:
+            raise ValueError(f"When mode is set to {self.mode!r} the config file of the coordinator "
+                             f"must define a {directive!r} directive.")
+
+        # check if we have the structure Dict[str, List[str]]
+        definition_structure_help_text = f"The {directive!r} directive must be a mapping of column names " \
+                                         f"to a list of strings.\n" \
+                                         f"E.g.:\n" \
+                                         f"fc_one_hot_encoding:\n" \
+                                         f"  {directive}:\n" \
+                                         f"    Celltype: ['large', 'adeno', 'smallcell', 'squamous']\n" \
+                                         f"    Prior_therapy: ['no', 'yes']\n" \
+                                         f"    Treatment: ['test', 'standard']"
+        if type(definition) is not dict:
+            raise ValueError(definition_structure_help_text)
+        for key, value in definition.items():
+            if type(key) is not str:
+                raise ValueError(definition_structure_help_text)
+            if type(value) is not list:
+                raise ValueError(definition_structure_help_text)
+            for value_in_list in value:
+                if type(value_in_list) is not str:
+                    raise ValueError(definition_structure_help_text)
+
+        self.study_definition = definition
+
     def read_config(self):
         print(f"Read config file.", flush=True)
         with open(os.path.join(self.INPUT_DIR, "config.yml")) as f:
@@ -81,6 +115,10 @@ class AppLogic:
             self.mode = config["mode"]
             if self.mode not in ("auto", "predefined"):
                 raise ValueError("Unknown mode")
+
+            if self.mode is "predefined":
+                if self.is_coordinator():
+                    self.parse_study_definition(config)
 
         shutil.copyfile(os.path.join(self.INPUT_DIR, "config.yml"), os.path.join(self.OUTPUT_DIR, "config.yml"))
 
