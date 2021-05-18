@@ -39,6 +39,7 @@ class AppLogic:
         self.input_filename = None
         self.sep = None
         self.output_filename = None
+        self.mode = None
 
         # === Internals ===
         self.thread = None
@@ -76,6 +77,7 @@ class AppLogic:
             self.input_filename = config["files"]["input_filename"]
             self.output_filename = config["files"]["output_filename"]
             self.sep = config["files"]["sep"]
+            self.mode = config["mode"]
         shutil.copyfile(os.path.join(self.INPUT_DIR, "config.yml"), os.path.join(self.OUTPUT_DIR, "config.yml"))
 
     def read_data(self):
