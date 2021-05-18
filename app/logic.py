@@ -72,12 +72,10 @@ class AppLogic:
         self.status_available = False
         return self.data_outgoing
 
-    def is_coordinator(self):
-        return self.id == self.coordinator
-
     def parse_study_definition(self, config):
         directive = "categorical_variables"
         definition = config.get(directive)
+        logging.debug(f"definition:\t{definition}")
         if definition is None:
             raise ValueError(f"When mode is set to {self.mode!r} the config file of the coordinator "
                              f"must define a {directive!r} directive.")
@@ -103,6 +101,7 @@ class AppLogic:
                     raise ValueError(definition_structure_help_text)
 
         self.study_definition = definition
+        logging.debug(f"study_definition:\t{self.study_definition}")
 
     def read_config(self):
         print(f"Read config file.", flush=True)
@@ -113,11 +112,11 @@ class AppLogic:
             self.sep = config["files"]["sep"]
 
             self.mode = config["mode"]
-            if self.mode not in ("auto", "predefined"):
+            if self.mode not in ["auto", "predefined"]:
                 raise ValueError("Unknown mode")
 
-            if self.mode is "predefined":
-                if self.is_coordinator():
+            if self.mode == "predefined":
+                if self.coordinator:
                     self.parse_study_definition(config)
 
         shutil.copyfile(os.path.join(self.INPUT_DIR, "config.yml"), os.path.join(self.OUTPUT_DIR, "config.yml"))
@@ -138,18 +137,25 @@ class AppLogic:
         logging.info(f"Write data to {path}")
         self.encoded_data.to_csv(path, sep=self.sep, index=False)
 
+    @staticmethod
+    def check_agree(data: List[str]):
+        return len(set(data)) == 1
+
     def app_flow(self):
         # This method contains a state machine for the participant and coordinator instance
 
         # === States ===
         state_initializing = 1
         state_read_config = 2
-        state_read_input = 3
-        state_summarize_columns = 4
-        state_wait_for_aggregation = 5
-        state_global_aggregate_col_info = 6
-        state_encode_data = 7
-        state_finish = 8
+        state_send_mode = 3
+        state_global_check_mode_agreement = 4
+        state_wait_for_mode_agreement = 5
+        state_read_input = 6
+        state_summarize_columns = 7
+        state_wait_for_aggregation = 8
+        state_global_aggregate_col_info = 9
+        state_encode_data = 10
+        state_finish = 11
 
         # Initial state
         state = state_initializing
@@ -171,8 +177,84 @@ class AppLogic:
                 print("[CLIENT] Read config...", flush=True)
                 # Read the config file
                 self.read_config()
-                state = state_read_input
+                state = state_send_mode
                 print("[CLIENT] Read config finished.", flush=True)
+
+            if state == state_send_mode:
+                self.progress = "send mode..."
+                print("[CLIENT] Send mode...", flush=True)
+                mode = self.mode
+                logging.debug(f"mode:\t{mode}")
+                # Encode local results to send it to coordinator
+                data_to_send = jsonpickle.encode(mode)
+
+                if self.coordinator:
+                    # if the client is the coordinator: add the local results directly to the data_incoming array
+                    self.data_incoming.append(data_to_send)
+                    # go to state where the coordinator is waiting for the local results and aggregates them
+                    state = state_global_check_mode_agreement
+                else:
+                    # if the client is not the coordinator: set data_outgoing and set status_available to true
+                    self.data_outgoing = data_to_send
+                    self.status_available = True
+                    # go to state where the client is waiting for the aggregated results
+                    state = state_wait_for_mode_agreement
+                    print('[CLIENT] Send mode to coordinator', flush=True)
+                print("[CLIENT] Send mode finished.", flush=True)
+
+            # GLOBAL AGGREGATION
+            if state == state_global_check_mode_agreement:
+                self.progress = "aggregate mode information..."
+                print("[COORDINATOR] Aggregate mode information...", flush=True)
+                if len(self.data_incoming) == len(self.clients):
+                    print("[COORDINATOR] Received mode of all participants.", flush=True)
+                    print("[COORDINATOR] Checking agreement on mode...", flush=True)
+                    # Decode received data of each client
+                    data = [jsonpickle.decode(client_data) for client_data in self.data_incoming]
+                    # Empty the incoming data (important for multiple iterations)
+                    self.data_incoming = []
+                    # Perform global aggregation
+                    agreement = self.check_agree(data)
+                    logging.debug(f"agreement:\t{agreement}")
+                    # Encode aggregated results for broadcasting
+                    data_to_broadcast = jsonpickle.encode(agreement)
+
+                    # Fill data_outgoing
+                    self.data_outgoing = data_to_broadcast
+                    # Set available to True such that the data will be broadcasted
+                    self.status_available = True
+                    # go to state where the client is waiting for the aggregated results
+
+                    if not agreement:
+                        state = state_finish
+                    else:
+                        state = state_read_input
+                    print("[COORDINATOR] Checking agreement on mode finished.", flush=True)
+                    time.sleep(10)
+                else:
+                    print(
+                        f"[COORDINATOR] Mode information of {str(len(self.clients) - len(self.data_incoming))} client(s) still "
+                        f"missing...)", flush=True)
+
+            if state == state_wait_for_mode_agreement:
+                self.progress = "wait for mode agreement information..."
+                print("[CLIENT] Wait for mode agreement information...", flush=True)
+                # Wait until received broadcast data from coordinator
+                if len(self.data_incoming) > 0:
+                    print("[CLIENT] Process aggregated result from coordinator...", flush=True)
+                    # Decode broadcasted data
+                    agreement = jsonpickle.decode(self.data_incoming[0])
+                    logging.debug(f"agreement:\t{agreement}")
+                    logging.debug(f"mode:\t{self.mode}")
+                    # Empty incoming data
+                    self.data_incoming = []
+
+                    if not agreement:
+                        raise ValueError("Participants do not agree on mode")
+
+                    # Go to nex state (finish)
+                    state = state_read_input
+                    print("[CLIENT] Mode agreement finished.", flush=True)
 
             if state == state_read_input:
                 self.progress = "read input..."
@@ -183,11 +265,18 @@ class AppLogic:
                 print("[CLIENT] Read input finished.", flush=True)
 
             if state == state_summarize_columns:
-                self.progress = "summarize columns..."
-                print("[CLIENT] Summarize columns...", flush=True)
+                if self.mode == "auto":
+                    self.progress = "summarize columns..."
+                    print("[CLIENT] Summarize columns...", flush=True)
 
-                # Compute local results
-                columns_summary = get_categories(self.data)
+                    # Compute local results
+                    columns_summary = get_categories(self.data)
+                else:
+                    if self.coordinator:
+                        columns_summary = self.study_definition
+                    else:
+                        columns_summary = None  # send None when predefined mode and node is not coordinator
+
                 logging.debug(f"columns_summary:\t{columns_summary}")
                 # Encode local results to send it to coordinator
                 data_to_send = jsonpickle.encode(columns_summary)
@@ -218,8 +307,12 @@ class AppLogic:
                     # Empty the incoming data (important for multiple iterations)
                     self.data_incoming = []
                     # Perform global aggregation
-                    self.aggregated_col_info = combine(data)
-                    logging.debug(f"combined:\t{self.aggregated_col_info}")
+                    if self.mode == "auto":
+                        self.aggregated_col_info = combine(data)
+                        logging.debug(f"combined:\t{self.aggregated_col_info}")
+                    else:
+                        # wait for other nodes to send something but ignore and return predefined
+                        self.aggregated_col_info = self.study_definition
                     # Encode aggregated results for broadcasting
                     data_to_broadcast = jsonpickle.encode(self.aggregated_col_info)
                     # Fill data_outgoing
