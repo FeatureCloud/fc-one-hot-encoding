@@ -99,12 +99,13 @@ class AppLogic:
 
         # === States ===
         state_initializing = 1
-        state_read_input = 2
-        state_summarize_columns = 3
-        state_wait_for_aggregation = 4
-        state_global_aggregate_col_info = 5
-        state_encode_data = 6
-        state_finish = 7
+        state_read_config = 2
+        state_read_input = 3
+        state_summarize_columns = 4
+        state_wait_for_aggregation = 5
+        state_global_aggregate_col_info = 6
+        state_encode_data = 7
+        state_finish = 8
 
         # Initial state
         state = state_initializing
@@ -118,14 +119,20 @@ class AppLogic:
                         print("I am the coordinator.", flush=True)
                     else:
                         print("I am a participating client.", flush=True)
-                    state = state_read_input
+                    state = state_read_config
                 print("[CLIENT] Initializing finished.", flush=True)
+
+            if state == state_read_config:
+                self.progress = "read config..."
+                print("[CLIENT] Read config...", flush=True)
+                # Read the config file
+                self.read_config()
+                state = state_read_input
+                print("[CLIENT] Read config finished.", flush=True)
 
             if state == state_read_input:
                 self.progress = "read input..."
                 print("[CLIENT] Read input...", flush=True)
-                # Read the config file
-                self.read_config()
                 # read input files
                 self.data = self.read_data()
                 state = state_summarize_columns
