@@ -104,7 +104,7 @@ class AppLogic:
         logging.debug(f"study_definition:\t{self.study_definition}")
 
     def read_config(self):
-        print(f"Read config file.", flush=True)
+        logging.debug(f"Read config file.")
         with open(os.path.join(self.INPUT_DIR, "config.yml")) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)["fc_one_hot_encoding"]
             self.input_filename = config["files"]["input_filename"]
@@ -114,11 +114,13 @@ class AppLogic:
             self.mode = config["mode"]
             if self.mode not in ["auto", "predefined"]:
                 raise ValueError("Unknown mode")
+            logging.debug(f"Mode: {self.mode}")
 
             if self.mode == "predefined":
                 if self.coordinator:
                     self.parse_study_definition(config)
 
+        logging.debug("Copy config file")
         shutil.copyfile(os.path.join(self.INPUT_DIR, "config.yml"), os.path.join(self.OUTPUT_DIR, "config.yml"))
 
     def read_data(self):
