@@ -81,8 +81,7 @@ class AppLogic:
                              f"must define a {directive!r} directive.")
 
         # check if we have the structure Dict[str, List[str]]
-        definition_structure_help_text = f"The {directive!r} directive must be a mapping of column names " \
-                                         f"to a list of strings.\n" \
+        definition_structure_help_text = f"The {directive!r} directive must be a mapping of column names to a list.\n" \
                                          f"E.g.:\n" \
                                          f"fc_one_hot_encoding:\n" \
                                          f"  {directive}:\n" \
@@ -96,9 +95,6 @@ class AppLogic:
                 raise ValueError(definition_structure_help_text)
             if type(value) is not list:
                 raise ValueError(definition_structure_help_text)
-            for value_in_list in value:
-                if type(value_in_list) is not str:
-                    raise ValueError(definition_structure_help_text)
 
         self.study_definition = definition
         logging.debug(f"study_definition:\t{self.study_definition}")

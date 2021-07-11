@@ -31,6 +31,7 @@ fc_one_hot_encoding:
     Celltype: ['large', 'adeno', 'smallcell', 'squamous']
     Prior_therapy: ['no', 'yes']
     Treatment: ['test', 'standard']
+    Class: [0, 1, 2]  # also numerical values possible
 ```
 
 ### At non-coordinator nodes:
