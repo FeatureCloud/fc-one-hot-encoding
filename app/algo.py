@@ -16,7 +16,7 @@ def get_categories(table: pandas.DataFrame):
     return summary
 
 
-def combine(data: List[Dict[str, Set[str]]]):
+def combine(data: List[Dict[str, Set[str, int]]]):
     categorical_levels = defaultdict(set)
 
     print(data)
