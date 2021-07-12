@@ -2,14 +2,14 @@
 # which is licensed under the GPL-3.0 License.
 # This code therefore is also licensed under the terms of the GNU General Public License, version 3.
 
-from typing import Dict, Set, List
+from typing import Dict, Set, List, Union
 
 import numpy
 import pandas
 from pandas.api.types import is_categorical_dtype
 
 
-def _get_mat(data, column_levels: List[str]):
+def _get_mat(data, column_levels: List[Union[str, int]]):
     cat = pandas.Categorical(data, categories=column_levels)
 
     dummy_mat = numpy.eye(len(column_levels)).take(cat.codes, axis=0)
@@ -20,8 +20,8 @@ def _get_mat(data, column_levels: List[str]):
     return dummy_mat
 
 
-def _encode_categorical_series(series, levels: Dict[str, Set[str]]):
-    levels_for_series: List[str] = sorted(levels[series.name])
+def _encode_categorical_series(series, levels: Dict[str, Set[Union[str, int]]]):
+    levels_for_series: List[Union[str, int]] = sorted(levels[series.name])
     enc = _get_mat(series, levels_for_series)
     if enc is None:
         return
@@ -44,7 +44,7 @@ def is_categorical_or_object(series):
     return is_categorical_dtype(series.dtype) or series.dtype.char == "O"
 
 
-def encode_categorical(table, levels: Dict[str, Set[str]]):
+def encode_categorical(table, levels: Dict[str, Set[Union[str, int]]]):
     if isinstance(table, pandas.Series):
         if not is_categorical_dtype(table.dtype) and not table.dtype.char == "O":
             raise TypeError("series must be of categorical dtype, but was {}".format(table.dtype))
