@@ -9,7 +9,7 @@ import jsonpickle
 import pandas
 import yaml
 
-from app.algo import combine, get_categories, encode_categorical
+from app.algo import combine, get_categories, encode_categorical, drop_rows_with_introduced_na_values
 
 
 class AppLogic:
@@ -128,7 +128,8 @@ class AppLogic:
 
     def encode_data(self):
         logging.info(f"Encode data")
-        self.encoded_data = encode_categorical(self.data, self.aggregated_col_info)
+        encoded_df = encode_categorical(self.data, self.aggregated_col_info)
+        self.encoded_data = drop_rows_with_introduced_na_values(self.data, encoded_df)
         logging.debug(f"Column names:\t{self.encoded_data.columns}")
 
     def write_output(self, path):

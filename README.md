@@ -14,6 +14,7 @@ The app can run in two modes; `auto` and `predefined`.
   To use this, add the `categorical_variables` directive in your `config.yml`.
   Under this directive define key-value-pairs for each categorical column in your data.
   These should consist of a string denoting the column name and a list enumerating all possible values.
+  If the data contains a not listed value, the row will be dropped.
   
 The nodes must agree on the selected mode. 
 If the modes are inconsistent, execution will be stopped prematurely before exchanging further data.
