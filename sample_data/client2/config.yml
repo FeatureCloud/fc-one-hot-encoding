@@ -1,0 +1,6 @@
+fc_one_hot_encoding:
+  files:
+    input_filename: "client2.csv"
+    output_filename: "client2_ohe.csv"
+    sep: ","
+  mode: "predefined"
