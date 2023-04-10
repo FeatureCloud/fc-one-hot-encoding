@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from .encode import *
+from encode import *
 import pandas
 
 
